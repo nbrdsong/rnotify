@@ -1,5 +1,0 @@
-Name: Run Script with Notification
-Description: Runs the active RStudio script, then beeps and sends a notification when complete or on error.
-Binding: rnotify
-Interactive: true
-
