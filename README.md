@@ -84,6 +84,6 @@ Replace the Reminders code section for different OS notifications if desired.
 
 Pull requests and suggestions are welcome! Please open Issues for bugs or ideas.
 
-License
+# License
 
-MIT License (see LICENSE)
+MIT License
