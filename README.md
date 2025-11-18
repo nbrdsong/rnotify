@@ -75,6 +75,10 @@ Confirm you've given R access to control Reminders in System Preferences → Sec
 ## Beep doesn’t play?
 Ensure the beepr package is installed and your sound is enabled.
 
+## Console looks weird?
+
+I am not sure how to fix that, at least without more effort than it would be worth. It happens because of how this addin works: it runs your .R file after wrapping the entire thing in code that sends the notification. Otherwise, it wouldn't be able to send a notification when code breaks. To get anything to show up in the console, it has to print an echo of it.
+
 # Customization
 
 You can edit the notification delay (offset_seconds) in rnotify.R.
