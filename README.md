@@ -1,5 +1,8 @@
 # rnotify
-RStudio addin that sends notifications via Apple's Reminders app once. Allows you to get buzzed on your iPhone and/or Apple Watch if your script completes or errors out. Also plays a fun noise from your computer's speakers (beepr).
+
+Running some code that might take a while to run? Can't do much else until it is done? Don't want to walk away from your computer in case it breaks/finishes, but also have other things you could be doing like going for a walk, eating lunch, or staring at other screens? Have you also bought into the Apple ecosystem? If yes to all of these questions, you might find this kind of neat.
+
+This is an RStudio addin that sends notifications via Apple's Reminders app (and plays a noise via your computer's speakers) once a script file finishes running. This allows you to get buzzed on your iPhone and/or Apple Watch if your script completes or errors out. 
 
 # Features
 
@@ -20,15 +23,16 @@ RStudio addin that sends notifications via Apple's Reminders app once. Allows yo
 
 You can install rnotify directly from GitHub using the devtools or remotes package:
 
-# Install devtools if you don't have it:
-install.packages("devtools")
-
-# Install rnotify from GitHub
-devtools::install_github("nbrdsong/rnotify")
+- Install devtools if you don't have it: install.packages("devtools")
+- devtools::install_github("nbrdsong/rnotify")
 
 Alternatively, you may download the ZIP file from the GitHub repository and install manually in R:
 
 - Use the path to the downloaded folder: install.packages("/path/to/rnotify", repos = NULL, type = "source")
+
+Restart RStudio after install.
+
+You also need to enable notifications on your phone or other Apple devices if you want to actually get notified on those devices.
 
 # Usage
 
@@ -37,7 +41,8 @@ Once installed, the addin will appear in the RStudio Addins menu.
 To use:
 
 - Open the R script you want to run in RStudio.
-- Go to Tools → Addins → Run Script with Notification (or whatever name you chose in addins.dcf).
+- Make sure the script file is saved.
+- Go to Tools → Addins → Run Script with Notification (under RNOTIFY).
 - The script runs in your Console. When finished, you will hear a beep and a Reminders notification will be scheduled for you.
 
 Console output:
