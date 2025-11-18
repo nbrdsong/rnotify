@@ -1,6 +1,6 @@
 # rnotify
 
-Running some code that might take a while to run? Can't do much else until it is done? Don't want to walk away from your computer in case it breaks/finishes, but also have other things you could be doing like going for a walk, eating lunch, or staring at other screens? Have you also bought into the Apple ecosystem? If yes to all of these questions, you might find this kind of neat.
+Running some code in RStudio that might take a while to run? Can't do much else until it is done? Don't want to walk away from your computer in case it breaks/finishes, but also have other things you could be doing like going for a walk, eating lunch, or staring at other screens? Have you also bought into the Apple ecosystem? If yes to all of these questions, you might find this kind of neat.
 
 This is an RStudio addin that sends notifications via Apple's Reminders app (and plays a noise via your computer's speakers) once a script file finishes running. This allows you to get buzzed on your iPhone and/or Apple Watch if your script completes or errors out. 
 
