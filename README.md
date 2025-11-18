@@ -43,7 +43,7 @@ To use:
 - Open the R script you want to run in RStudio.
 - Make sure the script file is saved.
 - Go to Tools → Addins → Run Script with Notification (under RNOTIFY).
-- The script runs in your Console. When finished, you will hear a beep and a Reminders notification will be scheduled for you.
+- The script runs in your Console. When finished, you will hear a beep and a Reminders notification will be scheduled for you in your default list in the Reminders app.
 
 Console output:
 
