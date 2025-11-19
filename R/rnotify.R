@@ -21,10 +21,19 @@ rnotify <- function() {
 		return(invisible(NULL))}
 	
 	# stream output to console while running
-	result <- tryCatch(
-		source(file, echo = TRUE),
-		error = function(e) e
-	)
+	output <- NULL
+	result <- tryCatch({
+    	output <- capture.output(source(file, echo = TRUE))
+    	NULL
+  	},
+  	error = function(e) {
+    	output <<- c(output, paste("Error:", e$message))
+    	e})
+
+if (length(output) > 0) {
+  message(paste(output, collapse = "\n"))
+  # Or use rstudioapi::showDialog() for GUI popup
+}
 	
 	if (inherits(result, "error")) {
 		beepr::beep(9)
