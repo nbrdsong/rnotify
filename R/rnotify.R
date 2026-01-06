@@ -81,55 +81,51 @@ reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL
   stopifnot(is.numeric(offset_seconds), length(offset_seconds) == 1,
             is.finite(offset_seconds), offset_seconds >= 0)
 
-  # Keep title one-line for Reminders
+  # Sanitize inputs
   name <- gsub("[\r\n]+", " ", as.character(name))
-  body <- if (is.null(body)) "" else as.character(body)
-  list_name <- if (is.null(list_name)) "" else as.character(list_name)
-
-  # IMPORTANT: pass AppleScript as ONE -e argument and use system2(..., quote=TRUE)
-  # to avoid shell parsing issues.
-  script <- paste(c(
-    'on run argv',
-    'set theName to item 1 of argv',
-    'set theBody to item 2 of argv',
-    'set theDelay to (item 3 of argv) as number',
-    'set theListName to item 4 of argv',
-    'set remindTime to (current date) + theDelay',
-    'tell application "Reminders" to launch',
-    'with timeout of 15 seconds',
-    '  tell application "Reminders"',
-    '    if theListName is not "" then',
-    '      try',
-    '        set theList to (first list whose name is theListName)',
-    '        make new reminder at end of reminders of theList with properties {name:theName, body:theBody, remind me date:remindTime}',
-    '      on error',
-    '        make new reminder with properties {name:theName, body:theBody, remind me date:remindTime}',
-    '      end try',
-    '    else',
-    '      make new reminder with properties {name:theName, body:theBody, remind me date:remindTime}',
-    '    end if',
-    '  end tell',
-    'end timeout',
-    'end run'
-  ), collapse = "\n")
-
-  args <- c(
-    "-e", script,
-    "--",
-    name,
-    body,
-    as.character(offset_seconds),
-    list_name
-  )
-
+  name <- gsub('"', '\\\\"', name)  # escape quotes
+  body <- gsub('"', '\\\\"', as.character(body))  # escape quotes
+  
+  # Build AppleScript with proper list handling
+  if (!is.null(list_name) && nzchar(list_name)) {
+    list_name <- gsub('"', '\\\\"', as.character(list_name))
+    script <- sprintf(
+      'tell application "Reminders"
+        set remindTime to (current date) + %d
+        try
+          set theList to (first list whose name is "%s")
+          make new reminder at end of reminders of theList with properties {name:"%s", body:"%s", remind me date:remindTime}
+        on error
+          make new reminder with properties {name:"%s", body:"%s", remind me date:remindTime}
+        end try
+      end tell',
+      offset_seconds, list_name, name, body, name, body
+    )
+  } else {
+    script <- sprintf(
+      'tell application "Reminders"
+        set remindTime to (current date) + %d
+        make new reminder with properties {name:"%s", body:"%s", remind me date:remindTime}
+      end tell',
+      offset_seconds, name, body
+    )
+  }
+  
+  cmd <- sprintf("osascript -e '%s'", script)
+  
+  if (debug) {
+    message("Command being executed:")
+    message(cmd)
+  }
+  
   out <- tryCatch(
-    system2("osascript", args = args, stdout = TRUE, stderr = TRUE, quote = TRUE),
-    error = function(e) structure(character(), status = 1, error = e)
+    system(cmd, intern = TRUE, ignore.stderr = FALSE),
+    error = function(e) structure(character(), error = e),
+    warning = function(w) structure(character(), warning = w)
   )
-
-  status <- attr(out, "status")
-  ok <- is.null(status) || identical(status, 0L)
+  
+  ok <- is.null(attr(out, "error")) && is.null(attr(out, "warning"))
   details <- if (!ok || isTRUE(debug)) paste(out, collapse = "\n") else ""
-
-  list(ok = ok, status = if (is.null(status)) 0L else status, details = details)
+  
+  list(ok = ok, status = if (ok) 0L else 1L, details = details)
 }
