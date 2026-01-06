@@ -103,12 +103,15 @@ reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL
     'end run'
   )
 
-  args <- c(as.vector(rbind("-e", script)), "--",
-            name, body, as.character(offset_seconds), list_name)
+  script_args <- as.vector(rbind("-e", script))
+
+  runtime_args <- c(name, body, as.character(offset_seconds), list_name)
+
+  args <- c(script_args, "--", runtime_args)
 
   out <- tryCatch(
     system2("osascript", args = args,
-            stdout = TRUE, stderr = TRUE),
+          stdout = TRUE, stderr = TRUE),
     error = function(e) structure(character(), status = 1, error = e)
   )
 
