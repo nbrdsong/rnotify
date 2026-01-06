@@ -28,7 +28,6 @@ rnotify <- function(offset_seconds = 20,
   }
   file <- normalizePath(file, winslash = "/", mustWork = TRUE)
 
-  # Run script WITHOUT storing source() return value (avoids accidental big duplication)
   err <- NULL
   tryCatch(
     source(file, echo = echo, chdir = chdir),
@@ -71,14 +70,14 @@ rnotify <- function(offset_seconds = 20,
 }
 
 reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL, debug = FALSE) {
-  stopifnot(is.numeric(offset_seconds), length(offset_seconds) == 1, is.finite(offset_seconds), offset_seconds >= 0)
+  stopifnot(is.numeric(offset_seconds), length(offset_seconds) == 1,
+            is.finite(offset_seconds), offset_seconds >= 0)
 
-  # Reminders titles don’t like newlines; keep the body for detail
   name <- gsub("[\r\n]+", " ", name)
   body <- if (is.null(body)) "" else as.character(body)
   list_name <- if (is.null(list_name)) "" else as.character(list_name)
 
-  script <- c(
+  script <- paste(c(
     'on run argv',
     'set theName to item 1 of argv',
     'set theBody to item 2 of argv',
@@ -101,7 +100,24 @@ reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL
     '  end tell',
     'end timeout',
     'end run'
+  ), collapse = "\n")
+
+  args <- c(
+    "-e", script, "--",
+    name, body, as.character(offset_seconds), list_name
   )
+
+  out <- tryCatch(
+    system2("osascript", args = args, stdout = TRUE, stderr = TRUE, quote = TRUE),
+    error = function(e) structure(character(), status = 1, error = e)
+  )
+
+  status <- attr(out, "status")
+  ok <- is.null(status) || identical(status, 0L)
+  details <- if (!ok || isTRUE(debug)) paste(out, collapse = "\n") else ""
+
+  list(ok = ok, status = if (is.null(status)) 0L else status, details = details)
+}
 
   script_args <- as.vector(rbind("-e", script))
 
