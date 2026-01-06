@@ -1,13 +1,16 @@
 rnotify <- function(offset_seconds = 20,
-                    list_name = NULL,     # set to a Reminders list name, or NULL for default
-                    echo = TRUE,          # keeps your current behavior (prints code as it runs)
-                    chdir = TRUE,
-                    beep = TRUE,
+                    list_name = NULL,     # optional: a Reminders list name (e.g., "Reminders"); NULL uses default
+                    echo = TRUE,          # preserves your current behavior (prints code as it runs)
+                    chdir = TRUE,         # run as if the script's folder is the working directory
+                    beep = TRUE,          # optional sound; silently skipped if beepr isn't installed
                     beep_success = 3,
                     beep_error = 9,
                     debug_osascript = FALSE) {
 
-  # macOS only
+  stopifnot(is.numeric(offset_seconds), length(offset_seconds) == 1,
+            is.finite(offset_seconds), offset_seconds >= 0)
+
+  # Check for macOS
   if (Sys.info()[["sysname"]] != "Darwin") {
     message("Reminders notification only works on macOS.")
     return(invisible(NULL))
@@ -18,6 +21,7 @@ rnotify <- function(offset_seconds = 20,
     stop("rstudioapi is required and must be available (run inside RStudio).")
   }
 
+  # Get active RStudio file
   ctx <- tryCatch(rstudioapi::getActiveDocumentContext(), error = function(e) NULL)
   file <- if (!is.null(ctx)) ctx$path else ""
 
@@ -26,12 +30,15 @@ rnotify <- function(offset_seconds = 20,
     message("Active file is unsaved or unavailable.")
     return(invisible(NULL))
   }
+
   file <- normalizePath(file, winslash = "/", mustWork = TRUE)
 
+  # Run script; DO NOT store source() return value (avoids accidental large duplication)
   err <- NULL
   tryCatch(
     source(file, echo = echo, chdir = chdir),
-    error = function(e) err <<- e
+    error = function(e) err <<- e,
+    interrupt = function(e) err <<- e
   )
 
   ok <- is.null(err)
@@ -39,21 +46,22 @@ rnotify <- function(offset_seconds = 20,
 
   base <- basename(file)
   msg  <- if (ok) paste(base, "finished OK.")
-          else    paste(base, "errored:", conditionMessage(err))
+          else    paste(base, "stopped:", conditionMessage(err))
 
-  # Keep reminder title short-ish; put details in body
   stamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
   name  <- paste0("[RStudio] ", msg)
   body  <- paste0(stamp, "\n", file, if (!ok) paste0("\n\n", conditionMessage(err)) else "")
 
-  res <- reminders_add(name, body, offset_seconds = offset_seconds, list_name = list_name,
+  res <- reminders_add(name = name, body = body,
+                       offset_seconds = offset_seconds,
+                       list_name = list_name,
                        debug = debug_osascript)
 
   if (!res$ok) {
     message(
       "AppleScript/Reminders failed.\n",
-      res$details,
-      "\n\nIf this is a permissions issue: macOS System Settings → Privacy & Security → Automation → allow RStudio to control Reminders."
+      if (nzchar(res$details)) paste0(res$details, "\n") else "",
+      "\nIf this is a permissions issue: macOS System Settings → Privacy & Security → Automation → allow RStudio to control Reminders."
     )
   } else {
     message("Scheduled reminder: ", msg)
@@ -73,10 +81,13 @@ reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL
   stopifnot(is.numeric(offset_seconds), length(offset_seconds) == 1,
             is.finite(offset_seconds), offset_seconds >= 0)
 
-  name <- gsub("[\r\n]+", " ", name)
+  # Keep title one-line for Reminders
+  name <- gsub("[\r\n]+", " ", as.character(name))
   body <- if (is.null(body)) "" else as.character(body)
   list_name <- if (is.null(list_name)) "" else as.character(list_name)
 
+  # IMPORTANT: pass AppleScript as ONE -e argument and use system2(..., quote=TRUE)
+  # to avoid shell parsing issues.
   script <- paste(c(
     'on run argv',
     'set theName to item 1 of argv',
@@ -89,7 +100,7 @@ reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL
     '  tell application "Reminders"',
     '    if theListName is not "" then',
     '      try',
-    '        set theList to list theListName',
+    '        set theList to (first list whose name is theListName)',
     '        make new reminder at end of reminders of theList with properties {name:theName, body:theBody, remind me date:remindTime}',
     '      on error',
     '        make new reminder with properties {name:theName, body:theBody, remind me date:remindTime}',
@@ -103,8 +114,12 @@ reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL
   ), collapse = "\n")
 
   args <- c(
-    "-e", script, "--",
-    name, body, as.character(offset_seconds), list_name
+    "-e", script,
+    "--",
+    name,
+    body,
+    as.character(offset_seconds),
+    list_name
   )
 
   out <- tryCatch(
@@ -115,26 +130,6 @@ reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL
   status <- attr(out, "status")
   ok <- is.null(status) || identical(status, 0L)
   details <- if (!ok || isTRUE(debug)) paste(out, collapse = "\n") else ""
-
-  list(ok = ok, status = if (is.null(status)) 0L else status, details = details)
-}
-
-  script_args <- as.vector(rbind("-e", script))
-
-  runtime_args <- c(name, body, as.character(offset_seconds), list_name)
-
-  args <- c(script_args, "--", runtime_args)
-
-  out <- tryCatch(
-    system2("osascript", args = args,
-          stdout = TRUE, stderr = TRUE),
-    error = function(e) structure(character(), status = 1, error = e)
-  )
-
-  status <- attr(out, "status")
-  ok <- is.null(status) || identical(status, 0L)
-
-  details <- if (!ok) paste(out, collapse = "\n") else if (isTRUE(debug)) paste(out, collapse = "\n") else ""
 
   list(ok = ok, status = if (is.null(status)) 0L else status, details = details)
 }
