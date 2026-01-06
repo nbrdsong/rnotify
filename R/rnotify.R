@@ -78,58 +78,60 @@ rnotify <- function(offset_seconds = 20,
 }
 
 reminders_add <- function(name, body = "", offset_seconds = 20, list_name = NULL, debug = FALSE) {
-  stopifnot(is.numeric(offset_seconds), length(offset_seconds) == 1,
-            is.finite(offset_seconds), offset_seconds >= 0)
+  stopifnot(is.numeric(offset_seconds), length(offset_seconds) == 1, is.finite(offset_seconds), offset_seconds >= 0)
 
-  # Keep title one-line for Reminders
   name <- gsub("[\r\n]+", " ", as.character(name))
   body <- if (is.null(body)) "" else as.character(body)
   list_name <- if (is.null(list_name)) "" else as.character(list_name)
 
-  # IMPORTANT: pass AppleScript as ONE -e argument and use system2(..., quote=TRUE)
-  # to avoid shell parsing issues.
-  script <- paste(c(
+  script <- c(
     'on run argv',
-    'set theName to item 1 of argv',
-    'set theBody to item 2 of argv',
-    'set theDelay to (item 3 of argv) as number',
-    'set theListName to item 4 of argv',
-    'set remindTime to (current date) + theDelay',
-    'tell application "Reminders" to launch',
-    'with timeout of 15 seconds',
-    '  tell application "Reminders"',
-    '    if theListName is not "" then',
-    '      try',
-    '        set theList to (first list whose name is theListName)',
-    '        make new reminder at end of reminders of theList with properties {name:theName, body:theBody, remind me date:remindTime}',
-    '      on error',
+    '  -- tolerate accidental leading "--"',
+    '  if (count of argv) ≥ 1 and item 1 of argv is "--" then',
+    '    set argv to items 2 thru -1 of argv',
+    '  end if',
+    '  if (count of argv) < 4 then error "Expected 4 args (name, body, delay, list). Got " & (count of argv)',
+    '  set theName to item 1 of argv',
+    '  set theBody to item 2 of argv',
+    '  set theDelay to (item 3 of argv) as number',
+    '  set theListName to item 4 of argv',
+    '  set remindTime to (current date) + theDelay',
+    '  tell application "Reminders" to launch',
+    '  with timeout of 15 seconds',
+    '    tell application "Reminders"',
+    '      if theListName is not "" then',
+    '        try',
+    '          set theList to first list whose name is theListName',
+    '          make new reminder at end of reminders of theList with properties {name:theName, body:theBody, remind me date:remindTime}',
+    '        on error',
+    '          make new reminder with properties {name:theName, body:theBody, remind me date:remindTime}',
+    '        end try',
+    '      else',
     '        make new reminder with properties {name:theName, body:theBody, remind me date:remindTime}',
-    '      end try',
-    '    else',
-    '      make new reminder with properties {name:theName, body:theBody, remind me date:remindTime}',
-    '    end if',
-    '  end tell',
-    'end timeout',
+    '      end if',
+    '    end tell',
+    '  end timeout',
     'end run'
-  ), collapse = "\n")
-
-  args <- c(
-    "-e", script,
-    "--",
-    name,
-    body,
-    as.character(offset_seconds),
-    list_name
   )
 
+  args <- c(as.vector(rbind("-e", script)),
+            name, body, as.character(offset_seconds), list_name)
+
   out <- tryCatch(
-    system2("osascript", args = args, stdout = TRUE, stderr = TRUE, quote = TRUE),
-    error = function(e) structure(character(), status = 1, error = e)
+    system2("/usr/bin/osascript", args = args, stdout = TRUE, stderr = TRUE),
+    error = function(e) structure(character(), status = 1L, error = e)
   )
 
   status <- attr(out, "status")
   ok <- is.null(status) || identical(status, 0L)
-  details <- if (!ok || isTRUE(debug)) paste(out, collapse = "\n") else ""
+
+  details <- ""
+  if (!ok) {
+    if (!is.null(attr(out, "error"))) details <- conditionMessage(attr(out, "error"))
+    if (length(out)) details <- paste(c(details, out), collapse = "\n")
+  } else if (isTRUE(debug) && length(out)) {
+    details <- paste(out, collapse = "\n")
+  }
 
   list(ok = ok, status = if (is.null(status)) 0L else status, details = details)
 }
